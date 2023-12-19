@@ -114,7 +114,7 @@ def classify_website(path_to_html):
     df_predict = pd.DataFrame([txt_clean], columns=['text'])
 
     bag_of_words = []
-    with open('research/data/bag_of_words.txt', 'r') as file:
+    with open('research/bag_of_words.txt', 'r') as file:
         bag_of_words = file.readlines()
     bag_of_words = [word.strip() for word in bag_of_words]
     df_predict = create_features(df_predict, bag_of_words)
