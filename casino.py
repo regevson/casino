@@ -141,6 +141,9 @@ async def process_url(url: str):
     download_website(url)
     # print('download completed!')
     path_to_html = find_first_html(FOLDER + domain)
+    if path_to_html is None:
+        print("didn't find html file")
+        return DOMAIN
     append_script_to_html(path_to_html)
     # print("returning: ", DOMAIN + path_to_html)
 
@@ -150,5 +153,7 @@ async def process_url(url: str):
 
     print(label, prob)
     print("Execution time:", execution_time, "seconds")
-
-    return DOMAIN + path_to_html
+    if label == 0:
+        return DOMAIN + path_to_html
+    else:
+        return DOMAIN + "blocked.html"
