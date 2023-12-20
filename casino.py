@@ -108,6 +108,7 @@ def classify_website(path_to_html):
     txt_clean = txt_clean.split()
     txt_clean = list(set(txt_clean))
     txt_clean = ' '.join(txt_clean)
+    print(txt_clean)
 
     df_predict = pd.DataFrame([txt_clean], columns=['text'])
 
