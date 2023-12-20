@@ -8,8 +8,7 @@ import urllib.parse
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from bs4 import BeautifulSoup
-from joblib import dump, load
-from sklearn.svm import SVC
+from joblib import load
 
 app = FastAPI()
 
@@ -27,10 +26,10 @@ FOLDER = "website_dump/"
 def download_website(url):
     scrape_cmd = """
         #!/bin/bash
-        wget --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3" \
-        --convert-links --adjust-extension --page-requisites --no-parent"""
+        wget --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3" --convert-links --adjust-extension --page-requisites --no-parent"""
 
-    scrape_cmd += f" -P {FOLDER} {url}"
+    scrape_cmd += f' -P {FOLDER} "{url}"'
+    print(scrape_cmd)
     subprocess.run(["bash", "-c", scrape_cmd], stderr=subprocess.PIPE, text=True)
 
 
@@ -39,7 +38,7 @@ def append_script_to_html(path_to_html):
                 content = file.read()
 
         script = """
-            <a href="https://casino.regevson.com" style="position: fixed; right: 4px; bottom: 12px; width: 70px; height: 70px; z-index: 999999999;">
+            <a class="qqqexception" href="https://casino.regevson.com" style="position: fixed; right: 4px; bottom: 12px; width: 70px; height: 70px; z-index: 999999999;">
                 <img src="/img/logo.png" style="width: 100%" title="Back To Search">
             </a>
 
@@ -47,7 +46,7 @@ def append_script_to_html(path_to_html):
 
             <script>
             document.addEventListener('DOMContentLoaded', function() {
-                var links = document.getElementsByTagName('a');
+                var links = document.querySelectorAll('a:not(.qqqexception)');
                 for (var i = 0; i < links.length; i++) {
                     links[i].addEventListener('click', function(event) {
                         event.preventDefault(); // Prevent the default link behavior
@@ -87,17 +86,16 @@ def find_first_html(root_folder):
                 return os.path.join(root, filename)
     return None
 
-
 def create_features(df, bag_of_words):
-    df['features'] = None
-    for idx, row in df.iterrows():
+    features = []
+    for _, row in df.iterrows():
         text = row['text']
         website_words = text.split()
         website_words = list(dict.fromkeys(website_words))
-        features_local = [1 if w in website_words else 0 for w in bag_of_words]
-        df.at[idx, 'features'] = features_local
+        feature = [1 if w in website_words else 0 for w in bag_of_words]
+        features.append(feature)
+    df['features'] = features
     return df
-
     
 def classify_website(path_to_html):
     with open(path_to_html, 'r', encoding='utf-8') as file:
@@ -121,10 +119,10 @@ def classify_website(path_to_html):
 
     feature_vec = np.array(df_predict['features'].tolist())
 
-    svm = load('research/weights.joblib')
+    model = load('research/weights_random_forest.joblib')
 
-    label = svm.predict(feature_vec)
-    prob = svm.predict_proba(feature_vec)
+    label = model.predict(feature_vec)
+    prob = model.predict_proba(feature_vec)
     return label[0], prob[0]
     
 
@@ -137,19 +135,24 @@ async def process_url(url: str):
     else:
         domain = urllib.parse.urlparse(url).netloc # extract only the domain
     delete_folders()
-    # print('start download...')
+    print('start download...')
     download_website(url)
-    # print('download completed!')
+    print('download completed!')
+    print('init html find')
     path_to_html = find_first_html(FOLDER + domain)
     if path_to_html is None:
         print("didn't find html file")
         return DOMAIN
+    else:
+        print('successful html find')
     append_script_to_html(path_to_html)
     # print("returning: ", DOMAIN + path_to_html)
 
+    print('start classification')
     start_time = time.time()
     label, prob = classify_website(path_to_html)
     execution_time = time.time() - start_time
+    print('end classification')
 
     print(label, prob)
     print("Execution time:", execution_time, "seconds")
